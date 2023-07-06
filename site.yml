@@ -9,6 +9,7 @@
     dnf:
       update_only: yes
       update_cache: yes
+    changed_when: false
     when: ansible_distribution == "RedHat"
 
   - name: install updates (Ubuntu)
@@ -16,6 +17,7 @@
     apt:
       upgrade: dist
       update_cache: yes
+    changed_when: false
     when: ansible_distribution == "Ubuntu"
 
   - name: install updates (Debian)
@@ -23,7 +25,26 @@
     apt:
       upgrade: dist
       update_cache: yes
+    changed_when: false
     when: ansible_distribution == "Debian"
+
+
+- hosts: workstations
+  become: true
+  tasks:
+
+  - name: install unzip
+    package:
+      name: unzip
+
+  - name: install terraform
+    unarchive:
+      src: https://releases.hashicorp.com/terraform/1.5.2/terraform_1.5.2_linux_amd64.zip
+      dest: /usr/local/bin
+      remote_src: yes
+      mode: 0755
+      owner: root
+      group: root
 
 
 - hosts: web_servers
@@ -49,6 +70,30 @@
       state: latest
       update_cache: yes
     when: ansible_distribution == "RedHat"
+
+  - name: start httpd (RedHat)
+    tags: apache,httpd,redhat
+    service:
+      name: httpd
+      state: started
+      enabled: yes
+    when: ansible_distribution == "RedHat"
+
+  - name: change e-mail address for admin
+    tags: apache,redhat,httpd
+    lineinfile:
+      path: /etc/httpd/conf/httpd.conf
+      regexp: '^ServerAdmin'
+      line: ServerAdmin somebody@somewhere.net
+    when: ansible_distribution == "RedHat"
+    register: httpd
+
+  - name: restart httpd (RedHat)
+    tags: apache,redhat,httpd
+    service:
+      name: httpd
+      state: restarted
+    when: httpd.changed
 
   - name: copy default html file to server
     tags: apache,apache2,httpd
